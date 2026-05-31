@@ -1,0 +1,30 @@
+      // 标签页处理：按“中文名称”过滤，彻底解决ID变动导致按钮丢失的问题
+      case /^https?:\/\/app\.bilibili\.com\/x\/resource\/show\/tab/.test(magicJS.request.url):
+        try {
+          let obj = JSON.parse(magicJS.response.body);
+          
+          // 1. 处理顶部滑动分类 (首页分类：如推荐、热门、追番等)
+          if (obj["data"]["tab"]) {
+            // 【分类白名单】在这里填入你想在首页顶部看到的分类名称，其余的将被全部去除
+            const keepTabs = ["推荐", "热门", "直播"]; 
+            obj["data"]["tab"] = obj["data"]["tab"].filter((e) => keepTabs.includes(e.name));
+          }
+
+          // 2. 处理右上角图标 (游戏中心、私信等)
+          if (obj["data"]["top"]) {
+            // 【右上角黑名单】只要名字叫“游戏”或“游戏中心”，就干掉。其余的（包括私信）无条件保留！
+            obj["data"]["top"] = obj["data"]["top"].filter((e) => e.name !== "游戏中心" && e.name !== "游戏");
+          }
+
+          // 3. 处理底部导航栏 (首页、动态、发布、会员购、我的等)
+          if (obj["data"]["bottom"]) {
+            // 【底栏白名单】只保留最核心的几个按钮，强行剔除会员购
+            const keepBottoms = ["首页", "动态", "消息", "我的"];
+            obj["data"]["bottom"] = obj["data"]["bottom"].filter((e) => keepBottoms.includes(e.name));
+          }
+
+          body = JSON.stringify(obj);
+        } catch (err) {
+          magicJS.logError(`标签页处理出现异常：${err}`);
+        }
+        break;
