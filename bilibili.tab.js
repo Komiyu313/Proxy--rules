@@ -1,48 +1,27 @@
 /**
- * B站首页导航栏自定义
+ * B站 导航栏精简脚本
  *
  * 顶栏：
  *   直播 / 推荐 / 热门 / 动画 / 影视
  *
+ * 右上角：
+ *   仅保留「消息」
+ *   屏蔽「游戏」等其他按钮
+ *
  * 底栏：
- *   首页 / 关注(动态) / 消息 / 我的
- *
- * 删除：
- *   发布(+)
- *   会员购
- *
- * 基于 Sparkle Bilibili.json.js 当前版本的 Tab 数据结构。
+ *   保留服务器原有项目
+ *   删除「发布」和「会员购」
  */
-(() => {
-  const body = $response.body;
-  if (!body) {
-    $done({});
-    return;
-  }
-  try {
-    const obj = JSON.parse(body);
-    if (!obj || !obj.data || typeof obj.data !== "object") {
-      $done({ body });
-      return;
-    }
-    const data = obj.data;
+let body = $response.body;
+try {
+  let obj = JSON.parse(body);
+  if (obj && obj.data) {
     /*
      * ============================================================
-     * 1. 顶栏 / 首页频道
+     * 1. 首页顶部五个频道
      * ============================================================
-     *
-     * 这里使用 Sparkle 原模块当前版本的完整数据。
-     *
-     * 不要只写 name。
-     * B站客户端实际还会依赖：
-     *   id
-     *   tab_id
-     *   uri
-     *   default_selected
-     *
-     * 其中推荐必须保持 default_selected: 1。
      */
-    data.tab = [
+    obj.data.tab = [
       {
         pos: 1,
         id: 731,
@@ -82,47 +61,42 @@
     ];
     /*
      * ============================================================
-     * 2. 顶部右侧功能
+     * 2. 右上角功能
      * ============================================================
      *
-     * 原模块这里使用「消息」。
+     * 原 Sparkle 模块这里直接只返回「消息」。
      *
-     * 如果服务器已经返回了 top，就保留服务器其他字段；
-     * 只确保消息入口存在。
+     * 因此国内版 B站服务器下发的：
+     *   游戏
+     *   活动
+     *   其他右上角入口
+     *
+     * 都会被覆盖掉。
      */
-    if (Array.isArray(data.top)) {
-      const messageTop = data.top.find(item => {
-        if (!item) return false;
-        const name = String(item.name || "");
-        const tabId = String(item.tab_id || "");
-        const uri = String(item.uri || "");
-        return (
-          name.includes("消息") ||
-          tabId === "消息Top" ||
-          uri.includes("im_home")
-        );
-      });
-      if (messageTop) {
-        messageTop.pos = 1;
+    obj.data.top = [
+      {
+        pos: 1,
+        id: 176,
+        name: "消息",
+        tab_id: "消息Top",
+        uri: "bilibili://link/im_home",
+        icon: "http://i0.hdslb.com/bfs/archive/d43047538e72c9ed8fd8e4e34415fbe3a4f632cb.png"
       }
-    }
+    ];
     /*
      * ============================================================
      * 3. 底部 Dock
      * ============================================================
      *
-     * 只删除：
-     *   - 发布
-     *   - 会员购
+     * 保留服务器返回的其他字段和图标。
      *
-     * 其余项目全部保留。
-     *
-     * 这样不会像 Gemini 那版一样把 bottom 对象全部重建，
-     * 可以继续保留 B站服务器返回的 icon、icon_selected 等字段。
+     * 删除：
+     *   发布
+     *   会员购
      */
-    if (Array.isArray(data.bottom)) {
-      data.bottom = data.bottom.filter(item => {
-        if (!item || typeof item !== "object") {
+    if (Array.isArray(obj.data.bottom)) {
+      obj.data.bottom = obj.data.bottom.filter(item => {
+        if (!item) {
           return false;
         }
         const name = String(
@@ -168,34 +142,23 @@
         return true;
       });
       /*
-       * 重新整理 position。
-       *
-       * B站有些版本的 bottom.pos 并不连续，
-       * 过滤之后重新编号可以避免出现：
-       *
-       * 1 / 2 / 4 / 5
-       *
-       * 这种情况。
+       * 重新编号
        */
-      data.bottom.forEach((item, index) => {
+      obj.data.bottom.forEach((item, index) => {
         item.pos = index + 1;
       });
     }
     /*
      * ============================================================
-     * 4. 最终输出
+     * 4. 输出
      * ============================================================
      */
-    $done({
-      body: JSON.stringify(obj)
-    });
-  } catch (error) {
-    /*
-     * JSON 解析失败时不要破坏 B站响应，
-     * 直接返回原始内容。
-     */
-    $done({
-      body
-    });
+    body = JSON.stringify(obj);
   }
-})();
+} catch (e) {
+  /*
+   * 如果解析失败，则保持原始响应，
+   * 避免把 B站接口搞坏。
+   */
+}
+$done({ body });
